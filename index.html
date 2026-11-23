@@ -15,11 +15,28 @@
   </head>
   <body>
     <main id="gameApp">
+      <div class="loginScreen" id="loginScreen">
+        <section class="loginCard" aria-label="Player login">
+          <div class="loginMark">🐍</div>
+          <p class="loginEyebrow">WELCOME TO</p>
+          <h1>Snake</h1>
+          <p class="loginText">Enter your name and password to play.</p>
+          <form id="loginForm">
+            <label for="username">Name</label>
+            <input id="username" name="username" type="text" autocomplete="username" minlength="2" required placeholder="Enter your name" />
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" minlength="4" required placeholder="Enter your password" />
+            <p class="loginError" id="loginError" role="alert"></p>
+            <button class="loginButton" id="loginButton" type="submit">Log in</button>
+          </form>
+          <button class="authSwitch" id="authSwitch" type="button">New player? Create an account</button>
+        </section>
+      </div>
       <header>
         <span>Score <b id="score">0</b></span
         ><span>Level <b id="level">1</b></span
         ><span class="tools"
-          ><button id="pause">Pause</button></span
+          ><button id="pause">Pause</button><button id="logout">Logout</button></span
         ><span>Best <b id="best">0</b></span>
       </header>
       <div class="wrap">

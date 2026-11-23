@@ -180,5 +180,18 @@
   $("pause").addEventListener("click",togglePause);
   var dbs=document.querySelectorAll("#diff button");Array.prototype.forEach.call(dbs,function(b){b.addEventListener("click",function(){level=b.getAttribute("data-s");Array.prototype.forEach.call(dbs,function(x){x.setAttribute("aria-pressed",String(x===b))})})});
   $("go").addEventListener("click",start);
+
+  var authMode="login";
+  function encodePassword(password){try{return btoa(unescape(encodeURIComponent(password)))}catch(e){return password}}
+  function getAccounts(){try{return JSON.parse(localStorage.getItem("snake-accounts")||"{}")||{}}catch(e){return{}}}
+  function showGame(username){$("loginScreen").classList.add("hidden");$("gameApp").classList.remove("hidden");if(username)$("ovText").textContent="Welcome, "+username+"! Eat the glowing friend photos to grow."}
+  function showLogin(){running=false;if(loop)clearInterval(loop);$("loginScreen").classList.remove("hidden");$("gameApp").classList.remove("hidden");$("loginError").textContent=""}
+  $("authSwitch").addEventListener("click",function(){authMode=authMode=== "login"?"create":"login";$("loginButton").textContent=authMode=== "login"?"Log in":"Create account";$("password").autocomplete=authMode=== "login"?"current-password":"new-password";this.textContent=authMode=== "login"?"New player? Create an account":"Already have an account? Log in";$("loginError").textContent=""});
+  $("loginForm").addEventListener("submit",function(e){e.preventDefault();var username=$("username").value.trim(),password=$("password").value;if(username.length<2||password.length<4){$("loginError").textContent="Use a name with 2+ characters and a password with 4+ characters.";return}var accounts=getAccounts(),key=username.toLowerCase();if(authMode=== "create"){if(accounts[key]){$("loginError").textContent="That name already exists. Please log in.";return}accounts[key]={password:encodePassword(password)};try{localStorage.setItem("snake-accounts",JSON.stringify(accounts))}catch(e){}}else if(!accounts[key]||accounts[key].password!==encodePassword(password)){$("loginError").textContent="Name or password is incorrect.";return}try{sessionStorage.setItem("snake-session",username)}catch(e){}$("password").value="";showGame(username)});
+  $("logout").addEventListener("click",function(){try{sessionStorage.removeItem("snake-session")}catch(e){}showLogin()});
+
   reset();
+  var savedSession="";
+  try{savedSession=sessionStorage.getItem("snake-session")||""}catch(e){}
+  if(savedSession){showGame(savedSession)}else{showLogin()}
 })();
