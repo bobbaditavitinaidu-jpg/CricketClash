@@ -1,3 +1,11 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+const firebaseApp=initializeApp({apiKey:"AIzaSyBU0mLVYHIy10_DR_leBbzZrAtSip9rwhc",authDomain:"cricketclash-2dac2.firebaseapp.com",projectId:"cricketclash-2dac2",storageBucket:"cricketclash-2dac2.firebasestorage.app",messagingSenderId:"491625722889",appId:"1:491625722889:web:638fa8e325cdbec195b4d8",measurementId:"G-99EX6FWV8V"});
+const firebaseAuth=getAuth(firebaseApp);
+const firebaseDb=getFirestore(firebaseApp);
+
 (function(){
   var N=20, cv=document.getElementById("c"), ctx=cv.getContext("2d"), S=cv.width/N;
   var $=function(id){return document.getElementById(id)};
@@ -167,6 +175,7 @@
     if(score>best){best=score;$("best").textContent=best;try{localStorage.setItem("snake-best",String(best))}catch(e){}}
     if(score>0){top.push(score);top.sort(function(a,b){return b-a});top=top.slice(0,5);try{localStorage.setItem("snake-top",JSON.stringify(top))}catch(e){}renderTop()}
     $("ovTitle").textContent=customTitle||(won?"You filled the board":"Game over");$("ovText").textContent=customText||("You scored "+score+". Best score: "+best+".");$("go").textContent="Play again";$("ov").classList.remove("hide");draw();
+    if(firebaseAuth.currentUser&&score>0){var playerRef=doc(firebaseDb,"players",firebaseAuth.currentUser.uid);setDoc(playerRef,{lastScore:score,bestScore:Math.max(score,best),lastPlayed:serverTimestamp()},{merge:true}).catch(function(){})}
   }
   function turn(name){var v=V[name];if(!v||!running)return;if(v[0]===-dir[0]&&v[1]===-dir[1])return;next=v}
   document.addEventListener("keydown",function(e){var m={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right",w:"up",s:"down",a:"left",d:"right"}[e.key];if(m){e.preventDefault();turn(m)}else if(e.key=== "p"||e.key=== "P"||(e.key=== " "&&running)){e.preventDefault();togglePause()}else if((e.key=== " "||e.key=== "Enter")&&!running&&document.activeElement.tagName!== "BUTTON")start()});
@@ -182,16 +191,13 @@
   $("go").addEventListener("click",start);
 
   var authMode="login";
-  function encodePassword(password){try{return btoa(unescape(encodeURIComponent(password)))}catch(e){return password}}
-  function getAccounts(){try{return JSON.parse(localStorage.getItem("snake-accounts")||"{}")||{}}catch(e){return{}}}
+  function nameToEmail(name){return name.trim().toLowerCase().replace(/[^a-z0-9]/g,"-")+"@cricketclash.local"}
   function showGame(username){$("loginScreen").classList.add("hidden");$("gameApp").classList.remove("hidden");if(username)$("ovText").textContent="Welcome, "+username+"! Eat the glowing friend photos to grow."}
   function showLogin(){running=false;if(loop)clearInterval(loop);$("loginScreen").classList.remove("hidden");$("gameApp").classList.remove("hidden");$("loginError").textContent=""}
   $("authSwitch").addEventListener("click",function(){authMode=authMode=== "login"?"create":"login";$("loginButton").textContent=authMode=== "login"?"Log in":"Create account";$("password").autocomplete=authMode=== "login"?"current-password":"new-password";this.textContent=authMode=== "login"?"New player? Create an account":"Already have an account? Log in";$("loginError").textContent=""});
-  $("loginForm").addEventListener("submit",function(e){e.preventDefault();var username=$("username").value.trim(),password=$("password").value;if(username.length<2||password.length<4){$("loginError").textContent="Use a name with 2+ characters and a password with 4+ characters.";return}var accounts=getAccounts(),key=username.toLowerCase();if(authMode=== "create"){if(accounts[key]){$("loginError").textContent="That name already exists. Please log in.";return}accounts[key]={password:encodePassword(password)};try{localStorage.setItem("snake-accounts",JSON.stringify(accounts))}catch(e){}}else if(!accounts[key]||accounts[key].password!==encodePassword(password)){$("loginError").textContent="Name or password is incorrect.";return}try{sessionStorage.setItem("snake-session",username)}catch(e){}$("password").value="";showGame(username)});
-  $("logout").addEventListener("click",function(){try{sessionStorage.removeItem("snake-session")}catch(e){}showLogin()});
+  $("loginForm").addEventListener("submit",async function(e){e.preventDefault();var name=$("username").value.trim(),password=$("password").value;if(name.length<2||password.length<4){$("loginError").textContent="Use a name with 2+ characters and a password with 4+ characters.";return}var email=nameToEmail(name);try{var credential;if(authMode=== "create")credential=await createUserWithEmailAndPassword(firebaseAuth,email,password);else credential=await signInWithEmailAndPassword(firebaseAuth,email,password);await setDoc(doc(firebaseDb,"players",credential.user.uid),{name:name,email:email,lastLogin:serverTimestamp()},{merge:true});$("password").value="";showGame(name)}catch(error){$("loginError").textContent=error.code=== "auth/email-already-in-use"?"That name already exists. Please log in.":"Name or password is incorrect."}});
+  $("logout").addEventListener("click",async function(){await signOut(firebaseAuth).catch(function(){})});
 
   reset();
-  var savedSession="";
-  try{savedSession=sessionStorage.getItem("snake-session")||""}catch(e){}
-  if(savedSession){showGame(savedSession)}else{showLogin()}
+  onAuthStateChanged(firebaseAuth,function(user){if(user){showGame(user.email?user.email.split("@")[0].replace(/-/g," "):"Player")}else{showLogin()}});
 })();
