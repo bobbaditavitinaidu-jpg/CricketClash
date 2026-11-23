@@ -298,54 +298,6 @@ button:focus-visible {
 .hide {
   display: none !important;
 }
-.quiz {
-  position: absolute;
-  inset: 5px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 24px;
-  border-radius: 14px;
-  background: rgba(248, 250, 247, 0.96);
-  color: #26382e;
-  text-align: center;
-}
-.quiz[hidden] {
-  display: none !important;
-}
-.quizTop {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-#quizTimer {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #ff4d9d;
-  font-size: 1.1rem;
-}
-.quiz h2 {
-  margin: 0;
-  font-size: 1.35rem;
-}
-.quizAnswers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-  gap: 10px;
-  width: 100%;
-}
-.quizAnswers button {
-  min-height: 54px;
-  padding: 8px 12px;
-  font-size: 1.05rem;
-}
 #gameApp.hidden {
   display: none !important;
 }

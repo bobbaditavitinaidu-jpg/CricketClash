@@ -1,17 +1,11 @@
 (function(){
   var N=20, cv=document.getElementById("c"), ctx=cv.getContext("2d"), S=cv.width/N;
   var $=function(id){return document.getElementById(id)};
-  var snake, dir, next, food, foodFriend=null, score, best=0, loop=null, running=false, bonus=null, bonusT=0, level="normal", paused=false, soundOn=true, ac=null, rocks=[], rocksOn=false, wrap=false, skin=null, top=[];
+  var snake, dir, next, food, foodFriend=null, score, best=0, loop=null, running=false, bonus=null, bonusT=0, level="normal", paused=false, rocks=[], rocksOn=false, wrap=false, skin=null, top=[];
   var particles=[], foodColor="#ff4d9d", rainbowShift=0, foodPop=null;
-  var quizActive=false, quizSeconds=15, quizTimer=null;
-  var QUIZZES=[
-    {q:"12 + 8 = ?",a:"20",choices:["18","20","21","22"]},
-    {q:"9 × 3 = ?",a:"27",choices:["21","24","27","30"]},
-    {q:"45 ÷ 5 = ?",a:"9",choices:["5","8","9","10"]},
-    {q:"16 − 7 = ?",a:"9",choices:["7","8","9","11"]},
-    {q:"6 × 6 = ?",a:"36",choices:["30","32","36","42"]},
-    {q:"25 + 17 = ?",a:"42",choices:["40","41","42","43"]}
-  ];
+  var eatSound=new Audio("Fahhhh (1).mp3");
+  eatSound.preload="auto";
+  eatSound.volume=0.8;
   var FOOD_COLORS=["#ff4d9d","#ff5a36","#ffd166","#40d9a0","#55aaff","#a66cff"];
   var FRIENDS=["images/friend1.jpg","images/friend2.jpg","images/friend3.jpg","images/friend4.jpg"];
   var friendImages={};
@@ -51,7 +45,6 @@
   function reset(){
     snake=[[10,10],[9,10],[8,10]]; dir=V.right; next=V.right; score=0; bonus=null; paused=false;
     particles=[]; rainbowShift=0; foodPop=null;
-    quizActive=false; if(quizTimer)clearInterval(quizTimer); if($("quizPanel"))$("quizPanel").hidden=true;
     $("score").textContent=0; $("level").textContent=1; rocks=[]; placeFood(); if(rocksOn){for(var i=0;i<4;i++)addRock(true)} draw();
   }
   function draw(){
@@ -110,15 +103,34 @@
     if(hitWall||hitSelf){return over()}
     snake.unshift(h);
     if(ate){
-      openQuiz();
-      return;
+      score++; $("score").textContent=score; updateLevel(); rainbowShift=(rainbowShift+28)%360; burst(food[0],food[1]); foodPop={x:food[0],y:food[1],life:12}; placeFood();
+      if(!food)return over(true);
+      if(rocksOn&&score%5===0&&rocks.length<12)addRock(false);
+      if(!bonus&&Math.random()<0.25)placeBonus();
+      try{eatSound.pause();eatSound.currentTime=0;eatSound.play().catch(function(){})}catch(e){}
+      restart(); draw();
     }else if(ateB){
-      score+=5; $("score").textContent=score; updateLevel(); burst(bonus[0],bonus[1]); rainbowShift=(rainbowShift+28)%360; playGameSound("bonus",990,.15); bonus=null; restart();
+      score+=5; $("score").textContent=score; updateLevel(); burst(bonus[0],bonus[1]); rainbowShift=(rainbowShift+28)%360; bonus=null; restart();
     }else{snake.pop()}
     if(bonus&&--bonusT<=0)bonus=null;
     rainbowShift=(rainbowShift+1)%360;
     updateParticles();
     draw();
+  }
+  function updateLevel(){
+    var newLevel=Math.floor(score/5)+1;
+    $("level").textContent=newLevel;
+  }
+  function burst(x,y){
+    var cx=x*S+S/2, cy=y*S+S/2;
+    for(var i=0;i<18;i++){
+      var angle=(Math.PI*2*i)/18;
+      particles.push({x:cx,y:cy,vx:Math.cos(angle)*(1.5+Math.random()*2),vy:Math.sin(angle)*(1.5+Math.random()*2),size:2+Math.random()*3,life:30,color:foodColor});
+    }
+  }
+  function updateParticles(){
+    particles.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.04;p.life--});
+    particles=particles.filter(function(p){return p.life>0});
   }
   function speed(){var base={easy:190,normal:150,hard:110}[level];return Math.max(50,base-score*4)}
   function isRock(x,y){return rocks.some(function(r){return r[0]===x&&r[1]===y})}
@@ -133,38 +145,6 @@
     }
     if(free.length)rocks.push(free[Math.floor(Math.random()*free.length)]);
   }
-  var GAME_SOUNDS={
-    eat:new Audio("Thalapathy Thalapathy.mp3"),
-    bonus:new Audio("Omae wa mou shindeiru.mp3"),
-    over:new Audio("Omae wa mou shindeiru.mp3")
-  };
-  var SOUND_LENGTH={eat:700,bonus:1200,over:1500}, soundStopTimers={};
-  Object.keys(GAME_SOUNDS).forEach(function(name){
-    var audio=GAME_SOUNDS[name];
-    audio.volume=0.7;
-    audio.preload="auto";
-    audio.load();
-  });
-  function playGameSound(name,beepFrequency,beepDuration){
-    if(!soundOn)return;
-    var audio=GAME_SOUNDS[name];
-    if(audio){
-      try{
-        audio.pause();
-        audio.currentTime=0;
-        var playPromise=audio.play();
-        if(soundStopTimers[name])clearTimeout(soundStopTimers[name]);
-        soundStopTimers[name]=setTimeout(function(){
-          audio.pause(); audio.currentTime=0;
-        },SOUND_LENGTH[name]||700);
-        if(playPromise&&playPromise.catch){
-          playPromise.catch(function(){beep(beepFrequency,beepDuration)});
-        }
-        return;
-      }catch(e){}
-    }
-    beep(beepFrequency,beepDuration);
-  }
   function placeBonus(){
     var free=[];
     for(var x=0;x<N;x++)for(var y=0;y<N;y++){
@@ -173,62 +153,22 @@
     if(free.length){bonus=free[Math.floor(Math.random()*free.length)];bonusT=40}
   }
   function togglePause(){
-    if(!running||quizActive)return;
+    if(!running)return;
     paused=!paused;
     if(paused){clearInterval(loop);$("pause").textContent="Resume"}
     else{restart();$("pause").textContent="Pause"}
   }
   function restart(){clearInterval(loop);loop=setInterval(tick,speed())}
-  function openQuiz(){
-    clearInterval(loop); quizActive=true; quizSeconds=15;
-    var question=QUIZZES[Math.floor(Math.random()*QUIZZES.length)];
-    $("quizQuestion").textContent=question.q;
-    $("quizTimer").textContent=quizSeconds;
-    var answers=$("quizAnswers"); answers.innerHTML="";
-    question.choices.forEach(function(answer){
-      var button=document.createElement("button"); button.textContent=answer;
-      button.addEventListener("click",function(){finishQuiz(answer===question.a)}); answers.appendChild(button);
-    });
-    $("quizPanel").hidden=false; draw();
-    quizTimer=setInterval(function(){
-      quizSeconds--; $("quizTimer").textContent=quizSeconds;
-      if(quizSeconds<=0){finishQuiz(false,true)}
-    },1000);
-  }
-  function finishQuiz(correct,timeout){
-    if(!quizActive)return;
-    clearInterval(quizTimer); quizActive=false; $("quizPanel").hidden=true;
-    if(!correct){
-      $("ovTitle").textContent=timeout?"Time ran out":"Wrong answer";
-      $("ovText").textContent="The quiz stopped the snake. Try again!";
-      $("go").textContent="Play again";
-      over(false,timeout?"Time ran out":"Wrong answer","The quiz stopped the snake. Try again!");
-      return;
-    }
-    score++; $("score").textContent=score; updateLevel();
-    foodPop={x:food[0],y:food[1],life:12}; burst(food[0],food[1]); rainbowShift=(rainbowShift+28)%360;
-    playGameSound("eat",660,.08); placeFood();
-    if(!food)return over(true);
-    if(rocksOn&&score%5===0&&rocks.length<12)addRock(false);
-    if(!bonus&&Math.random()<0.25)placeBonus();
-    restart(); draw();
-  }
-  function beep(f,d){
-    if(!soundOn||!ac)return;
-    try{var o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}
-  }
   function start(){
-    try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume()}catch(e){}
-    Object.keys(GAME_SOUNDS).forEach(function(name){var audio=GAME_SOUNDS[name];try{audio.pause();audio.currentTime=0;var promise=audio.play();if(promise&&promise.then){promise.then(function(){audio.pause();audio.currentTime=0}).catch(function(){})}}catch(e){}});
-    reset();running=true;$("pause").textContent="Pause";$("ov").classList.add("hide");openQuiz();
+    reset();running=true;$("pause").textContent="Pause";$("ov").classList.add("hide");restart();
   }
   function over(won,customTitle,customText){
-    clearInterval(loop);running=false;paused=false;playGameSound("over",180,.3);
+    clearInterval(loop);running=false;paused=false;
     if(score>best){best=score;$("best").textContent=best;try{localStorage.setItem("snake-best",String(best))}catch(e){}}
     if(score>0){top.push(score);top.sort(function(a,b){return b-a});top=top.slice(0,5);try{localStorage.setItem("snake-top",JSON.stringify(top))}catch(e){}renderTop()}
     $("ovTitle").textContent=customTitle||(won?"You filled the board":"Game over");$("ovText").textContent=customText||("You scored "+score+". Best score: "+best+".");$("go").textContent="Play again";$("ov").classList.remove("hide");draw();
   }
-  function turn(name){var v=V[name];if(!v||!running||quizActive)return;if(v[0]===-dir[0]&&v[1]===-dir[1])return;next=v}
+  function turn(name){var v=V[name];if(!v||!running)return;if(v[0]===-dir[0]&&v[1]===-dir[1])return;next=v}
   document.addEventListener("keydown",function(e){var m={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right",w:"up",s:"down",a:"left",d:"right"}[e.key];if(m){e.preventDefault();turn(m)}else if(e.key=== "p"||e.key=== "P"||(e.key=== " "&&running)){e.preventDefault();togglePause()}else if((e.key=== " "||e.key=== "Enter")&&!running&&document.activeElement.tagName!== "BUTTON")start()});
   Array.prototype.forEach.call(document.querySelectorAll(".dpad button"),function(b){b.addEventListener("click",function(){turn(b.getAttribute("data-d"))})});
   var sx=0,sy=0;
@@ -238,7 +178,6 @@
   $("wrapBtn").addEventListener("click",function(){wrap=!wrap;this.setAttribute("aria-pressed",String(wrap));this.textContent=wrap?"Walls: wrap":"Walls: solid"});
   var sws=document.querySelectorAll("#skins button");Array.prototype.forEach.call(sws,function(b){b.addEventListener("click",function(){skin=SKINS[+b.getAttribute("data-k")];Array.prototype.forEach.call(sws,function(x){x.setAttribute("aria-pressed",String(x===b))});draw()})});
   $("pause").addEventListener("click",togglePause);
-  $("snd").addEventListener("click",function(){soundOn=!soundOn;this.setAttribute("aria-pressed",String(soundOn));this.textContent=soundOn?"Sound on":"Sound off"});
   var dbs=document.querySelectorAll("#diff button");Array.prototype.forEach.call(dbs,function(b){b.addEventListener("click",function(){level=b.getAttribute("data-s");Array.prototype.forEach.call(dbs,function(x){x.setAttribute("aria-pressed",String(x===b))})})});
   $("go").addEventListener("click",start);
   reset();
@@ -250,7 +189,7 @@
   function encodePassword(password){try{return btoa(unescape(encodeURIComponent(password)))}catch(e){return password}}
   function getAccounts(){try{return JSON.parse(localStorage.getItem("snake-accounts")||"{}")||{}}catch(e){return{}}}
   function showGame(username){$("loginScreen").classList.add("hidden");$("gameApp").classList.remove("hidden");if(username)$("ovText").textContent="Welcome, "+username+"! Eat the glowing friend photos to grow."}
-  function showLogin(){running=false;if(loop)clearInterval(loop);quizActive=false;$("loginScreen").classList.remove("hidden");$("gameApp").classList.remove("hidden");$("loginError").textContent=""}
+  function showLogin(){running=false;if(loop)clearInterval(loop);$("loginScreen").classList.remove("hidden");$("gameApp").classList.remove("hidden");$("loginError").textContent=""}
   $("authSwitch").addEventListener("click",function(){authMode=authMode=== "login"?"create":"login";$("loginButton").textContent=authMode=== "login"?"Log in":"Create account";$("password").autocomplete=authMode=== "login"?"current-password":"new-password";this.textContent=authMode=== "login"?"New player? Create an account":"Already have an account? Log in";$("loginError").textContent=""});
   $("loginForm").addEventListener("submit",function(e){e.preventDefault();var username=$("username").value.trim(),password=$("password").value;if(username.length<2||password.length<4){$("loginError").textContent="Use a username with 2+ characters and a password with 4+ characters.";return}var accounts=getAccounts(),key=username.toLowerCase();if(authMode=== "create"){if(accounts[key]){$("loginError").textContent="That username already exists. Please log in.";return}accounts[key]={password:encodePassword(password)};try{localStorage.setItem("snake-accounts",JSON.stringify(accounts))}catch(e){}}else if(!accounts[key]||accounts[key].password!==encodePassword(password)){$("loginError").textContent="Username or password is incorrect.";return}try{sessionStorage.setItem("snake-session",username)}catch(e){}$("password").value="";showGame(username)});
   $("logout").addEventListener("click",function(){try{sessionStorage.removeItem("snake-session")}catch(e){}showLogin()});
